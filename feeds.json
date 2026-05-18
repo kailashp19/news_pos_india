@@ -1,0 +1,22 @@
+[
+  {
+    "name": "The Better India",
+    "url": "https://thebetterindia.com/feed/",
+    "category": "india"
+  },
+  {
+    "name": "Google News India - Positive",
+    "url": "https://news.google.com/rss/search?q=(India%20OR%20Indian)%20(positive%20OR%20success%20OR%20achievement%20OR%20uplifted%20OR%20rescue%20OR%20award)%20when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+    "category": "india"
+  },
+  {
+    "name": "Google News India - Innovation",
+    "url": "https://news.google.com/rss/search?q=(India%20OR%20Indian)%20(innovation%20OR%20startup%20OR%20breakthrough%20OR%20renewable%20OR%20technology)%20when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+    "category": "india"
+  },
+  {
+    "name": "Google News India - Development",
+    "url": "https://news.google.com/rss/search?q=(India%20OR%20Indian)%20(development%20OR%20healthcare%20OR%20education%20OR%20clean%20energy%20OR%20conservation)%20when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+    "category": "india"
+  }
+]

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
 
-from app.config import MIN_POSITIVITY_SCORE
+from app.config import MIN_POSITIVITY_SCORE, WELLNESS_DIMENSIONS
 from app.db import init_db, list_articles, stats
 from app.ingest import ingest_all
 
@@ -37,16 +37,17 @@ async def lifespan(app: FastAPI):
             scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="Positive News Feed", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="India Holistic Wellness Feed", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/")
 def home() -> dict:
     return {
-        "name": "Positive News Feed API",
+        "name": "India Holistic Wellness Feed API",
         "docs": "/docs",
         "articles": "/api/articles",
         "refresh": "/api/refresh",
+        "dimensions": WELLNESS_DIMENSIONS,
     }
 
 
@@ -54,13 +55,20 @@ def home() -> dict:
 def articles(
     limit: int = Query(default=50, ge=1, le=100),
     min_score: float = Query(default=MIN_POSITIVITY_SCORE, ge=-1, le=1),
+    dimension: str = Query(default="all"),
 ) -> dict:
-    return {"items": list_articles(limit=limit, min_score=min_score)}
+    dimension = dimension.lower()
+    if dimension != "all" and dimension not in WELLNESS_DIMENSIONS:
+        dimension = "all"
+    return {"items": list_articles(limit=limit, min_score=min_score, dimension=dimension)}
 
 
 @app.get("/api/stats")
-def api_stats() -> dict:
-    return stats()
+def api_stats(dimension: str = Query(default="all")) -> dict:
+    dimension = dimension.lower()
+    if dimension != "all" and dimension not in WELLNESS_DIMENSIONS:
+        dimension = "all"
+    return stats(dimension=dimension)
 
 
 @app.post("/api/refresh")

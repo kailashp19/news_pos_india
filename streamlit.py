@@ -11,9 +11,19 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8010").rstrip("/")
 
 
 st.set_page_config(
-    page_title="Positive India News Feed",
+    page_title="India Holistic Wellness Feed",
     layout="wide",
 )
+
+
+DIMENSION_OPTIONS = {
+    "All": "all",
+    "Mental Health": "mental",
+    "Physical Health": "physical",
+    "Spiritual Health": "spiritual",
+    "Social Health": "social",
+    "Financial Health": "financial",
+}
 
 
 def format_date(value: str) -> str:
@@ -41,17 +51,17 @@ def api_get(url: str, **kwargs) -> dict:
 
 
 @st.cache_data(ttl=120)
-def fetch_articles(min_score: float, limit: int) -> list[dict]:
+def fetch_articles(min_score: float, limit: int, dimension: str) -> list[dict]:
     response = api_get(
         f"{API_BASE_URL}/api/articles",
-        params={"min_score": min_score, "limit": limit},
+        params={"min_score": min_score, "limit": limit, "dimension": dimension},
     )
     return response.get("items", [])
 
 
 @st.cache_data(ttl=120)
-def fetch_stats() -> dict:
-    return api_get(f"{API_BASE_URL}/api/stats")
+def fetch_stats(dimension: str) -> dict:
+    return api_get(f"{API_BASE_URL}/api/stats", params={"dimension": dimension})
 
 
 def refresh_feed() -> dict:
@@ -77,13 +87,18 @@ def show_api_error(exc: Exception) -> None:
     )
 
 
-st.title("Positive India News Feed")
+st.title("India Holistic Wellness Feed")
 
 with st.sidebar:
     st.header("Filters")
+    selected_dimension = st.selectbox(
+        "Wellness area",
+        options=list(DIMENSION_OPTIONS.keys()),
+    )
+    dimension = DIMENSION_OPTIONS[selected_dimension]
     min_score = st.slider(
-        "Minimum positive probability",
-        min_value=0.5,
+        "Minimum practical relevance",
+        min_value=0.3,
         max_value=0.95,
         value=0.55,
         step=0.05,
@@ -91,7 +106,7 @@ with st.sidebar:
     limit = st.slider("Articles", min_value=10, max_value=100, value=50, step=10)
 
     if st.button("Refresh feeds", type="primary", use_container_width=True):
-        with st.spinner("Fetching and classifying news..."):
+        with st.spinner("Fetching practical wellness content..."):
             try:
                 result = refresh_feed()
                 st.success(
@@ -104,22 +119,22 @@ with st.sidebar:
                 show_api_error(exc)
 
 try:
-    stats = fetch_stats()
-    articles = fetch_articles(min_score=min_score, limit=limit)
+    stats = fetch_stats(dimension)
+    articles = fetch_articles(min_score=min_score, limit=limit, dimension=dimension)
 except (requests.RequestException, ValueError) as exc:
     show_api_error(exc)
     st.stop()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Saved articles", stats.get("total_articles") or 0)
-col2.metric("Average positive probability", stats.get("average_score") or 0)
+col1.metric("Saved resources", stats.get("total_articles") or 0)
+col2.metric("Average relevance", stats.get("average_score") or 0)
 col3.metric("Showing", len(articles))
 st.caption(f"Backend: {API_BASE_URL}")
 
 st.divider()
 
 if not articles:
-    st.info("No India-focused articles match this score yet. Try lowering the threshold or refreshing feeds.")
+    st.info("No India-focused wellness resources match these filters yet. Try another wellness area, lowering the threshold, or refreshing feeds.")
 else:
     for article in articles:
         with st.container(border=True):
@@ -130,8 +145,8 @@ else:
 
             meta = [
                 f"Source: {article['source']}",
-                f"Category: {article['category']}",
-                f"Positive probability: {article['positivity_score']:.2f}",
+                f"Wellness area: {article['category'].title()}",
+                f"Practical relevance: {article['positivity_score']:.2f}",
             ]
             published = format_date(article["published_at"])
             if published:

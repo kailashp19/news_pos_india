@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from email.utils import parsedate_to_datetime
 
-import feedparser
 import httpx
+import feedparser
 
-from app.classifier import classify_positive_news
 from app.config import (
     INDIA_KEYWORDS,
     MAX_ARTICLES_PER_FEED,
@@ -16,6 +15,11 @@ from app.db import init_db, save_articles
 from app.feeds import load_feeds
 from app.models import Article, FeedSource
 from app.scoring import clean_text, summarize_words
+from app.wellness import (
+    detect_dimension,
+    is_wellness_content,
+    practical_wellness_score,
+)
 
 
 REQUEST_HEADERS = {
@@ -84,9 +88,14 @@ def fetch_feed(source: FeedSource) -> list[Article]:
         if not is_india_article(title, summary, source):
             continue
 
-        score = classify_positive_news(title, summary)
+        if not is_wellness_content(title, summary, source.category):
+            continue
+
+        score = practical_wellness_score(title, summary, source.category)
         if score < MIN_POSITIVITY_SCORE:
             continue
+
+        dimension = detect_dimension(title, summary, source.category)
 
         articles.append(
             Article(
@@ -94,7 +103,7 @@ def fetch_feed(source: FeedSource) -> list[Article]:
                 url=url,
                 source=source.name,
                 summary=summarize_words(summary, MAX_SUMMARY_WORDS),
-                category=source.category,
+                category=dimension,
                 image_url=find_image_url(entry),
                 published_at=normalize_date(entry),
                 positivity_score=score,

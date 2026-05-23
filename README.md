@@ -1,6 +1,6 @@
-# Positive India News Feed
+# India Holistic Wellness Feed
 
-A Python-first MVP that fetches latest India-focused RSS/news feeds, classifies positive stories with scikit-learn, stores them in SQLite, serves them through FastAPI, and displays 100-word summaries in Streamlit.
+A Python-first MVP that fetches practical India-focused holistic wellness resources, classifies them into mental, physical, spiritual, social, and financial wellness, stores them in SQLite, serves them through FastAPI, and displays 100-word summaries in Streamlit.
 
 ## Setup
 
@@ -12,7 +12,7 @@ source .venv312/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run Once To Fetch Latest India Articles
+## Run Once To Fetch Latest Wellness Resources
 
 ```bash
 python -m app.ingest
@@ -58,9 +58,10 @@ API_BASE_URL=http://127.0.0.1:8002 streamlit run streamlit_app.py
 
 ## Important Files
 
-- `feeds.json`: India-focused RSS/Google News sources to fetch.
-- `app/ingest.py`: fetch, normalize, score, and save articles.
-- `app/classifier.py`: scikit-learn classifier.
+- `feeds.json`: India-focused wellness RSS/Google News sources for mental, physical, spiritual, social, and financial health.
+- `app/ingest.py`: fetch, normalize, categorize, score, and save resources.
+- `app/wellness.py`: wellness dimension detection and practical relevance scoring.
+- `app/classifier.py`: older scikit-learn positive-news classifier retained for reference.
 - `app/scoring.py`: shared text cleanup helper.
 - `app/db.py`: SQLite schema and queries.
 - `app/main.py`: FastAPI backend.

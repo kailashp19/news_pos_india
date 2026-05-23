@@ -7,26 +7,33 @@ from typing import Iterator
 from app.config import (
     DATA_DIR,
     DB_PATH,
-    INDIA_KEYWORDS,
     MAX_ARTICLES_PER_SOURCE,
     MAX_SUMMARY_WORDS,
+    MIN_POSITIVITY_SCORE,
+    WELLNESS_DIMENSIONS,
+    WELLNESS_KEYWORDS,
 )
 from app.feeds import load_feeds
 from app.models import Article
 from app.scoring import summarize_words
+from app.wellness import practical_wellness_score
 
 
-def india_filter_sql() -> tuple[str, list[str]]:
-    filters = "LOWER(category) LIKE '%india%' OR " + " OR ".join(
+def wellness_filter_sql() -> tuple[str, list[str]]:
+    category_filters = " OR ".join("LOWER(category) = ?" for _ in WELLNESS_DIMENSIONS)
+    keyword_filters = " OR ".join(
         ["LOWER(title) LIKE ? OR LOWER(summary) LIKE ? OR LOWER(source) LIKE ?"]
-        * len(INDIA_KEYWORDS)
+        * len(WELLNESS_KEYWORDS)
     )
     params = [
+        *WELLNESS_DIMENSIONS,
+        *[
         f"%{keyword}%"
-        for keyword in INDIA_KEYWORDS
+        for keyword in WELLNESS_KEYWORDS
         for _ in range(3)
+        ],
     ]
-    return filters, params
+    return f"{category_filters} OR {keyword_filters}", params
 
 
 def current_sources_sql() -> tuple[str, list[str]]:
@@ -118,10 +125,19 @@ def save_articles(articles: list[Article]) -> int:
         return connection.total_changes - before
 
 
-def list_articles(limit: int = 50, min_score: float = 0.0) -> list[dict]:
+def list_articles(
+    limit: int = 50,
+    min_score: float = 0.0,
+    dimension: str = "all",
+) -> list[dict]:
     with connect() as connection:
-        india_filters, keyword_params = india_filter_sql()
+        wellness_filters, wellness_params = wellness_filter_sql()
         source_filters, source_params = current_sources_sql()
+        dimension_filter = ""
+        dimension_params: tuple[str, ...] = ()
+        if dimension in WELLNESS_DIMENSIONS:
+            dimension_filter = "AND LOWER(category) = ?"
+            dimension_params = (dimension,)
         rows = connection.execute(
             f"""
             SELECT *
@@ -142,20 +158,20 @@ def list_articles(limit: int = 50, min_score: float = 0.0) -> list[dict]:
                         ORDER BY published_at DESC, created_at DESC
                     ) AS source_rank
                 FROM articles
-                WHERE positivity_score >= ?
-                  AND ({india_filters})
+                WHERE ({wellness_filters})
                   AND {source_filters}
+                  {dimension_filter}
             )
             WHERE source_rank <= ?
             ORDER BY published_at DESC, created_at DESC
             LIMIT ?
             """,
             (
-                min_score,
-                *keyword_params,
+                *wellness_params,
                 *source_params,
+                *dimension_params,
                 MAX_ARTICLES_PER_SOURCE,
-                limit,
+                limit * 4,
             ),
         ).fetchall()
         articles = [dict(row) for row in rows]
@@ -164,23 +180,51 @@ def list_articles(limit: int = 50, min_score: float = 0.0) -> list[dict]:
                 article.get("summary", ""),
                 MAX_SUMMARY_WORDS,
             )
-        return articles
+            article["positivity_score"] = practical_wellness_score(
+                article.get("title", ""),
+                article.get("summary", ""),
+                article.get("category", ""),
+            )
+
+        return [
+            article
+            for article in articles
+            if article["positivity_score"] >= min_score
+        ][:limit]
 
 
-def stats() -> dict:
+def stats(dimension: str = "all") -> dict:
     with connect() as connection:
-        india_filters, keyword_params = india_filter_sql()
+        wellness_filters, wellness_params = wellness_filter_sql()
         source_filters, source_params = current_sources_sql()
-        row = connection.execute(
+        dimension_filter = ""
+        dimension_params: tuple[str, ...] = ()
+        if dimension in WELLNESS_DIMENSIONS:
+            dimension_filter = "AND LOWER(category) = ?"
+            dimension_params = (dimension,)
+        rows = connection.execute(
             f"""
             SELECT
-                COUNT(*) AS total_articles,
-                ROUND(AVG(positivity_score), 3) AS average_score,
-                MAX(created_at) AS last_saved_at
+                title,
+                summary,
+                category,
+                created_at
             FROM articles
-            WHERE {india_filters}
+            WHERE {wellness_filters}
               AND {source_filters}
+              {dimension_filter}
             """,
-            (*keyword_params, *source_params),
-        ).fetchone()
-        return dict(row)
+            (*wellness_params, *source_params, *dimension_params),
+        ).fetchall()
+        scores = [
+            practical_wellness_score(row["title"], row["summary"], row["category"])
+            for row in rows
+        ]
+        scores = [score for score in scores if score >= MIN_POSITIVITY_SCORE]
+        last_saved_at = max((row["created_at"] for row in rows), default=None)
+        average_score = round(sum(scores) / len(scores), 3) if scores else None
+        return {
+            "total_articles": len(scores),
+            "average_score": average_score,
+            "last_saved_at": last_saved_at,
+        }

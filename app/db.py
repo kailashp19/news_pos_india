@@ -4,13 +4,20 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Iterator
 
-from app.config import DATA_DIR, DB_PATH, INDIA_KEYWORDS, MAX_SUMMARY_WORDS
+from app.config import (
+    DATA_DIR,
+    DB_PATH,
+    INDIA_KEYWORDS,
+    MAX_ARTICLES_PER_SOURCE,
+    MAX_SUMMARY_WORDS,
+)
+from app.feeds import load_feeds
 from app.models import Article
 from app.scoring import summarize_words
 
 
 def india_filter_sql() -> tuple[str, list[str]]:
-    filters = "LOWER(category) = 'india' OR " + " OR ".join(
+    filters = "LOWER(category) LIKE '%india%' OR " + " OR ".join(
         ["LOWER(title) LIKE ? OR LOWER(summary) LIKE ? OR LOWER(source) LIKE ?"]
         * len(INDIA_KEYWORDS)
     )
@@ -20,6 +27,12 @@ def india_filter_sql() -> tuple[str, list[str]]:
         for _ in range(3)
     ]
     return filters, params
+
+
+def current_sources_sql() -> tuple[str, list[str]]:
+    sources = [feed.name for feed in load_feeds()]
+    placeholders = ", ".join("?" for _ in sources)
+    return f"source IN ({placeholders})", sources
 
 
 @contextmanager
@@ -108,26 +121,42 @@ def save_articles(articles: list[Article]) -> int:
 def list_articles(limit: int = 50, min_score: float = 0.0) -> list[dict]:
     with connect() as connection:
         india_filters, keyword_params = india_filter_sql()
+        source_filters, source_params = current_sources_sql()
         rows = connection.execute(
             f"""
-            SELECT
-                id,
-                title,
-                url,
-                source,
-                summary,
-                category,
-                image_url,
-                published_at,
-                positivity_score,
-                created_at
-            FROM articles
-            WHERE positivity_score >= ?
-              AND ({india_filters})
+            SELECT *
+            FROM (
+                SELECT
+                    id,
+                    title,
+                    url,
+                    source,
+                    summary,
+                    category,
+                    image_url,
+                    published_at,
+                    positivity_score,
+                    created_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY source
+                        ORDER BY published_at DESC, created_at DESC
+                    ) AS source_rank
+                FROM articles
+                WHERE positivity_score >= ?
+                  AND ({india_filters})
+                  AND {source_filters}
+            )
+            WHERE source_rank <= ?
             ORDER BY published_at DESC, created_at DESC
             LIMIT ?
             """,
-            (min_score, *keyword_params, limit),
+            (
+                min_score,
+                *keyword_params,
+                *source_params,
+                MAX_ARTICLES_PER_SOURCE,
+                limit,
+            ),
         ).fetchall()
         articles = [dict(row) for row in rows]
         for article in articles:
@@ -141,6 +170,7 @@ def list_articles(limit: int = 50, min_score: float = 0.0) -> list[dict]:
 def stats() -> dict:
     with connect() as connection:
         india_filters, keyword_params = india_filter_sql()
+        source_filters, source_params = current_sources_sql()
         row = connection.execute(
             f"""
             SELECT
@@ -149,7 +179,8 @@ def stats() -> dict:
                 MAX(created_at) AS last_saved_at
             FROM articles
             WHERE {india_filters}
+              AND {source_filters}
             """,
-            keyword_params,
+            (*keyword_params, *source_params),
         ).fetchone()
         return dict(row)

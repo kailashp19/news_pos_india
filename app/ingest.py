@@ -51,7 +51,7 @@ def find_image_url(entry: dict) -> str:
 
 
 def is_india_article(title: str, summary: str, source: FeedSource) -> bool:
-    if source.category == "india":
+    if "india" in source.category.lower():
         return True
 
     text = f"{title} {summary}".lower()

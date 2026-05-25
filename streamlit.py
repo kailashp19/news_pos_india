@@ -11,8 +11,8 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8010").rstrip("/")
 
 
 st.set_page_config(
-    page_title="Positive India News Feed",
-    layout="centered",
+    page_title="India Holistic Wellness Feed",
+    layout="wide",
 )
 
 
@@ -89,36 +89,34 @@ def show_api_error(exc: Exception) -> None:
 
 st.title("India Holistic Wellness Feed")
 
-st.subheader("Filters")
+with st.sidebar:
+    st.header("Filters")
+    selected_dimension = st.selectbox(
+        "Wellness area",
+        options=list(DIMENSION_OPTIONS.keys()),
+    )
+    dimension = DIMENSION_OPTIONS[selected_dimension]
+    min_score = st.slider(
+        "Minimum practical relevance",
+        min_value=0.3,
+        max_value=0.95,
+        value=0.55,
+        step=0.05,
+    )
+    limit = st.slider("Articles", min_value=10, max_value=100, value=50, step=10)
 
-min_score = st.slider(
-    "Minimum positive probability",
-    min_value=0.5,
-    max_value=0.95,
-    value=0.55,
-    step=0.05,
-)
-
-limit = st.slider(
-    "Articles",
-    min_value=10,
-    max_value=100,
-    value=50,
-    step=10,
-)
-
-if st.button("Refresh feeds", type="primary", use_container_width=True):
-    with st.spinner("Fetching and classifying news..."):
-        try:
-            result = refresh_feed()
-            st.success(
-                f"Saved {result['articles_saved']} new articles from "
-                f"{result['feeds_checked']} feeds."
-            )
-            if result["errors"]:
-                st.warning("Some sources were unavailable or rate-limited.")
-        except (requests.RequestException, ValueError) as exc:
-            show_api_error(exc)
+    if st.button("Refresh feeds", type="primary", use_container_width=True):
+        with st.spinner("Fetching practical wellness content..."):
+            try:
+                result = refresh_feed()
+                st.success(
+                    f"Saved {result['articles_saved']} new articles from "
+                    f"{result['feeds_checked']} feeds."
+                )
+                if result["errors"]:
+                    st.warning("Some sources were unavailable or rate-limited.")
+            except (requests.RequestException, ValueError) as exc:
+                show_api_error(exc)
 
 try:
     stats = fetch_stats(dimension)
@@ -127,7 +125,7 @@ except (requests.RequestException, ValueError) as exc:
     show_api_error(exc)
     st.stop()
 
-col1, col2, col3 = st.columns(3, gap="small")
+col1, col2, col3 = st.columns(3)
 col1.metric("Saved resources", stats.get("total_articles") or 0)
 col2.metric("Average relevance", stats.get("average_score") or 0)
 col3.metric("Showing", len(articles))

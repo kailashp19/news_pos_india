@@ -129,7 +129,7 @@ col1, col2, col3 = st.columns(3)
 col1.metric("Saved resources", stats.get("total_articles") or 0)
 col2.metric("Average relevance", stats.get("average_score") or 0)
 col3.metric("Showing", len(articles))
-st.caption(f"Backend: {API_BASE_URL}")
+# st.caption(f"Backend: {API_BASE_URL}")
 
 st.divider()
 

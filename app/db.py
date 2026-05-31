@@ -13,6 +13,7 @@ from app.config import (
     WELLNESS_DIMENSIONS,
     WELLNESS_KEYWORDS,
 )
+from app.curated import curated_source_names
 from app.feeds import load_feeds
 from app.models import Article
 from app.scoring import summarize_words
@@ -37,7 +38,7 @@ def wellness_filter_sql() -> tuple[str, list[str]]:
 
 
 def current_sources_sql() -> tuple[str, list[str]]:
-    sources = [feed.name for feed in load_feeds()]
+    sources = [feed.name for feed in load_feeds()] + curated_source_names()
     placeholders = ", ".join("?" for _ in sources)
     return f"source IN ({placeholders})", sources
 

@@ -11,6 +11,7 @@ from app.config import (
     MAX_SUMMARY_WORDS,
     MIN_POSITIVITY_SCORE,
 )
+from app.curated import load_curated_resources
 from app.db import init_db, save_articles
 from app.feeds import load_feeds
 from app.models import Article, FeedSource
@@ -116,7 +117,7 @@ def fetch_feed(source: FeedSource) -> list[Article]:
 def ingest_all() -> dict:
     init_db()
     feeds = load_feeds()
-    all_articles: list[Article] = []
+    all_articles: list[Article] = load_curated_resources()
     errors: list[dict] = []
 
     for source in feeds:

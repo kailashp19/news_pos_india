@@ -3,10 +3,12 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
+from pydantic import BaseModel, Field
 
 from app.config import MIN_POSITIVITY_SCORE, WELLNESS_DIMENSIONS
 from app.db import init_db, list_articles, stats
 from app.ingest import ingest_all
+from app.recommendations import recommend
 
 
 try:
@@ -40,6 +42,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="India Holistic Wellness Feed", version="0.2.0", lifespan=lifespan)
 
 
+class WellnessRecommendationRequest(BaseModel):
+    answers: dict[str, str] = Field(default_factory=dict)
+    limit: int = Field(default=6, ge=1, le=12)
+
+
 @app.get("/")
 def home() -> dict:
     return {
@@ -69,6 +76,11 @@ def api_stats(dimension: str = Query(default="all")) -> dict:
     if dimension != "all" and dimension not in WELLNESS_DIMENSIONS:
         dimension = "all"
     return stats(dimension=dimension)
+
+
+@app.post("/api/recommendations")
+def recommendations(payload: WellnessRecommendationRequest) -> dict:
+    return recommend(payload.answers, limit=payload.limit)
 
 
 @app.post("/api/refresh")

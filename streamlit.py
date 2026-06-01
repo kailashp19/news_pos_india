@@ -230,7 +230,12 @@ def init_session_state() -> None:
     st.session_state.setdefault("user_email", "")
     st.session_state.setdefault("user_avatar", "")
     st.session_state.setdefault("reset_token", "")
-    st.session_state.setdefault("active_view", "Feed")
+    st.session_state.setdefault("active_view", "Today")
+    st.session_state.setdefault("onboarding_step", "welcome")
+    st.session_state.setdefault("wellness_answers", {})
+    st.session_state.setdefault("recommendation", {})
+    st.session_state.setdefault("selected_article", None)
+    st.session_state.setdefault("done_articles", set())
 
 
 def logout() -> None:
@@ -239,6 +244,10 @@ def logout() -> None:
     st.session_state["user_email"] = ""
     st.session_state["user_avatar"] = ""
     st.session_state["reset_token"] = ""
+    st.session_state["onboarding_step"] = "welcome"
+    st.session_state["wellness_answers"] = {}
+    st.session_state["recommendation"] = {}
+    st.session_state["selected_article"] = None
     st.rerun()
 
 
@@ -288,6 +297,16 @@ def refresh_feed() -> dict:
     return response.json()
 
 
+def fetch_recommendation(answers: dict, limit: int = 6) -> dict:
+    response = requests.post(
+        f"{API_BASE_URL}/api/recommendations",
+        json={"answers": answers, "limit": limit},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def show_api_error(exc: Exception) -> None:
     response = getattr(exc, "response", None)
     if response is not None:
@@ -301,6 +320,278 @@ def show_api_error(exc: Exception) -> None:
         "FastAPI is not reachable. Start it with: "
         "`.venv312/bin/python -m uvicorn app.main:app --reload --port 8010`"
     )
+
+
+def display_name() -> str:
+    email = st.session_state.get("user_email", "")
+    name = email.split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
+    return name.title() if name else "there"
+
+
+def greeting() -> str:
+    hour = datetime.now().hour
+    if hour < 12:
+        return "Good morning"
+    if hour < 17:
+        return "Good afternoon"
+    return "Good evening"
+
+
+def render_welcome_screen() -> None:
+    st.title("Let's build your personal wellness plan in 2 minutes.")
+    st.write(
+        "This app is for general wellness education and gentle habit-building. "
+        "It does not provide medical advice, diagnosis, or treatment."
+    )
+    st.info(
+        "If you have a medical condition, are pregnant, have pain, feel unsafe, "
+        "or are unsure, please consult a qualified healthcare professional before "
+        "trying any activity."
+    )
+    if st.button("I understand", type="primary", use_container_width=True):
+        st.session_state["onboarding_step"] = "questions"
+        st.rerun()
+
+
+def render_wellness_questions() -> None:
+    st.title("Your Wellness Check-In")
+    st.caption("Eight quick choices. No diagnosis, just preferences for today.")
+
+    with st.form("wellness_check_form"):
+        st.subheader("Today's State")
+        feeling = st.radio(
+            "How are you feeling today?",
+            ["Calm", "Okay", "Tired", "Stressed", "Low energy", "Prefer not to say"],
+            index=1,
+            horizontal=True,
+        )
+        support = st.radio(
+            "What kind of support would feel helpful today?",
+            [
+                "Something calming",
+                "Something motivating",
+                "Something reflective",
+                "Something practical",
+                "Something light and easy",
+                "Not sure",
+            ],
+            index=5,
+            horizontal=True,
+        )
+        time = st.radio(
+            "How much time do you want to spend today?",
+            ["1 minute", "3 minutes", "5 minutes", "10 minutes", "Just reading today"],
+            index=1,
+            horizontal=True,
+        )
+
+        st.subheader("Comfort Level")
+        action = st.radio(
+            "What type of action feels comfortable today?",
+            [
+                "Reading",
+                "Reflection",
+                "Breathing",
+                "Journaling",
+                "Light movement",
+                "Social connection",
+                "Financial awareness",
+            ],
+            horizontal=True,
+        )
+        no_movement = st.radio(
+            "Would you prefer actions that do not require physical movement?",
+            ["Yes", "No", "Either is fine"],
+            index=2,
+            horizontal=True,
+        )
+
+        st.subheader("Energy Level")
+        energy = st.radio(
+            "What is your current energy level?",
+            ["Very low", "Low", "Medium", "High"],
+            index=2,
+            horizontal=True,
+        )
+
+        st.subheader("Safety Boundary")
+        avoid = st.radio(
+            "Is there anything you want to avoid today?",
+            [
+                "Physical activity",
+                "Emotional reflection",
+                "Breathing exercises",
+                "Financial tasks",
+                "Social tasks",
+                "No preference",
+            ],
+            index=5,
+            horizontal=True,
+        )
+
+        st.subheader("Wellness Interest")
+        interest = st.radio(
+            "Which area would you like to explore today?",
+            [
+                "Mental calm",
+                "Physical energy",
+                "Relationships",
+                "Money habits",
+                "Purpose and meaning",
+                "General positivity",
+            ],
+            index=5,
+            horizontal=True,
+        )
+
+        submitted = st.form_submit_button("Create my plan", type="primary")
+
+    if submitted:
+        answers = {
+            "feeling": feeling,
+            "support": support,
+            "time": time,
+            "action": action,
+            "no_movement": no_movement,
+            "energy": energy,
+            "avoid": avoid,
+            "interest": interest,
+        }
+        try:
+            st.session_state["recommendation"] = fetch_recommendation(answers)
+            st.session_state["wellness_answers"] = answers
+            st.session_state["onboarding_step"] = "home"
+            st.rerun()
+        except (requests.RequestException, ValueError) as exc:
+            show_api_error(exc)
+
+
+def save_or_unsave_button(article: dict, saved_urls: set[str], key_prefix: str) -> None:
+    if article["url"] in saved_urls:
+        if st.button("Saved", key=f"{key_prefix}_unsave_{article['url']}"):
+            unsave_article_for_user(int(st.session_state["user_id"]), article["url"])
+            st.success("Removed from saved articles.")
+            st.rerun()
+    elif st.button("Save Article", key=f"{key_prefix}_save_{article['url']}"):
+        save_article_for_user(int(st.session_state["user_id"]), article)
+        st.success("Article saved.")
+        st.rerun()
+
+
+def render_article_action_page(article: dict) -> None:
+    recommendation = st.session_state.get("recommendation", {})
+    answers = st.session_state.get("wellness_answers", {})
+    saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
+
+    if st.button("Back to today's plan"):
+        st.session_state["selected_article"] = None
+        st.rerun()
+
+    st.title(article["title"])
+    meta = [
+        f"Source: {article['source']}",
+        f"Wellness area: {article['category'].title()}",
+    ]
+    published = format_date(article.get("published_at", ""))
+    if published:
+        meta.append(f"Published: {published}")
+    st.caption(" | ".join(meta))
+
+    st.subheader("Quick Summary")
+    st.write(
+        article.get("summary")
+        or "This resource offers a short wellness idea you can explore today."
+    )
+
+    st.subheader("Why This Matters For You")
+    feeling = answers.get("feeling", "your current state")
+    interest = answers.get("interest", "general positivity")
+    st.write(
+        f'You selected "{feeling}" and chose "{interest}" during your wellness check. '
+        f"{recommendation.get('reason', 'This article is matched to your preferences for today')}"
+    )
+
+    st.subheader("Today's Action")
+    st.write(recommendation.get("article_action", "Take one small idea from this article today."))
+    if st.button("Mark as Done", type="primary"):
+        st.session_state["done_articles"].add(article["url"])
+        st.success("Done. Small steps count.")
+
+    st.subheader("Reflection")
+    st.radio(
+        "How do you feel after this?",
+        ["Better", "Same", "Worse", "Not sure"],
+        horizontal=True,
+        key=f"reflection_{article['url']}",
+    )
+
+    st.subheader("Save / Share")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        save_or_unsave_button(article, saved_urls, "detail")
+    with col_b:
+        st.link_button("Share Insight", article["url"])
+    with col_c:
+        st.link_button("Open Full Article", article["url"])
+
+
+def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) -> None:
+    with st.container(border=True):
+        st.subheader(article["title"])
+        if article.get("summary"):
+            st.write(summarize_words(article["summary"], 60))
+
+        meta = [
+            f"Source: {article['source']}",
+            f"Wellness area: {article['category'].title()}",
+            f"Practical relevance: {article['positivity_score']:.2f}",
+        ]
+        published = format_date(article.get("published_at", ""))
+        if published:
+            meta.append(f"Published: {published}")
+        st.caption(" | ".join(meta))
+
+        col_a, col_b, col_c = st.columns([1, 1, 1])
+        if col_a.button(
+            "Open Action Page",
+            key=f"{key_prefix}_open_{article['url']}",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["selected_article"] = article
+            st.rerun()
+        with col_b:
+            save_or_unsave_button(article, saved_urls, key_prefix)
+        col_c.link_button("Full Article", article["url"], use_container_width=True)
+
+
+def render_today_dashboard() -> None:
+    recommendation = st.session_state.get("recommendation", {})
+    articles = recommendation.get("articles", [])
+    saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
+
+    st.title(f"{greeting()}, {display_name()}")
+    st.caption("A gentle daily plan based on your check-in.")
+
+    col_focus, col_score = st.columns([2, 1])
+    with col_focus:
+        st.subheader("Today's Focus")
+        st.write(recommendation.get("today_focus", "Build one small wellness habit"))
+    with col_score:
+        st.metric("Your Wellness Score", f"{recommendation.get('wellness_score', 56)}/100")
+
+    st.subheader("Today's Plan")
+    for index, item in enumerate(recommendation.get("plan", []), start=1):
+        st.write(f"{index}. {item}")
+
+    st.divider()
+    st.subheader("Recommended For You")
+    if not articles:
+        st.info("No recommended articles are available yet. Try refreshing feeds or changing your check-in.")
+        return
+
+    for article in articles:
+        render_article_card(article, saved_urls, "recommended")
 
 
 def render_auth_screen() -> None:
@@ -409,62 +700,28 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 
-st.title("India Holistic Wellness Feed")
-
 with st.sidebar:
     st.markdown(
         f"### {st.session_state['user_avatar']} {st.session_state['user_email']}"
     )
     st.session_state["active_view"] = st.radio(
         "View",
-        ["Feed", "Saved Articles"],
+        ["Today", "Saved Articles", "Retake Check-In"],
     )
     st.button("Logout", on_click=logout, use_container_width=True)
     st.divider()
 
-with st.sidebar:
-    st.header("Filters")
-    selected_dimension = st.selectbox(
-        "Wellness area",
-        options=list(DIMENSION_OPTIONS.keys()),
-    )
-    dimension = DIMENSION_OPTIONS[selected_dimension]
-    min_score = st.slider(
-        "Minimum practical relevance",
-        min_value=0.3,
-        max_value=0.95,
-        value=0.55,
-        step=0.05,
-    )
-    limit = st.slider("Articles", min_value=10, max_value=100, value=50, step=10)
+if st.session_state["active_view"] == "Retake Check-In":
+    st.session_state["onboarding_step"] = "questions"
+    st.session_state["selected_article"] = None
 
-    if st.button("Refresh feeds", type="primary", use_container_width=True):
-        with st.spinner("Fetching practical wellness content..."):
-            try:
-                result = refresh_feed()
-                st.success(
-                    f"Saved {result['articles_saved']} new articles from "
-                    f"{result['feeds_checked']} feeds."
-                )
-                if result["errors"]:
-                    st.warning("Some sources were unavailable or rate-limited.")
-            except (requests.RequestException, ValueError) as exc:
-                show_api_error(exc)
-
-try:
-    stats = fetch_stats(dimension)
-    articles = fetch_articles(min_score=min_score, limit=limit, dimension=dimension)
-except (requests.RequestException, ValueError) as exc:
-    show_api_error(exc)
+if st.session_state["onboarding_step"] == "welcome":
+    render_welcome_screen()
     st.stop()
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Saved resources", stats.get("total_articles") or 0)
-col2.metric("Average relevance", stats.get("average_score") or 0)
-col3.metric("Showing", len(articles))
-st.caption(f"Backend: {API_BASE_URL}")
-
-st.divider()
+if st.session_state["onboarding_step"] == "questions":
+    render_wellness_questions()
+    st.stop()
 
 if st.session_state["active_view"] == "Saved Articles":
     saved_articles = list_saved_articles(int(st.session_state["user_id"]))
@@ -504,46 +761,35 @@ if st.session_state["active_view"] == "Saved Articles":
                     st.rerun()
     st.stop()
 
-if not articles:
-    st.info("No India-focused wellness resources match these filters yet. Try another wellness area, lowering the threshold, or refreshing feeds.")
-else:
-    saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
-    for article in articles:
-        with st.container(border=True):
-            st.subheader(article["title"])
-
-            if article["summary"]:
-                st.write(summarize_words(article["summary"], 100))
-
-            meta = [
-                f"Source: {article['source']}",
-                f"Wellness area: {article['category'].title()}",
-                f"Practical relevance: {article['positivity_score']:.2f}",
-            ]
-            published = format_date(article["published_at"])
-            if published:
-                meta.append(f"Published: {published}")
-
-            st.caption(" | ".join(meta))
-            col_a, col_b = st.columns([1, 1])
-            col_a.link_button("Read full article", article["url"])
-            if article["url"] in saved_urls:
-                if col_b.button(
-                    "Saved",
-                    key=f"unsave_{article['url']}",
-                    use_container_width=True,
-                ):
-                    unsave_article_for_user(
-                        int(st.session_state["user_id"]),
-                        article["url"],
+with st.sidebar:
+    st.header("Tools")
+    if st.button("Refresh feeds", type="primary", use_container_width=True):
+        with st.spinner("Fetching practical wellness content..."):
+            try:
+                result = refresh_feed()
+                st.success(
+                    f"Saved {result['articles_saved']} new articles from "
+                    f"{result['feeds_checked']} feeds."
+                )
+                if result["errors"]:
+                    st.warning("Some sources were unavailable or rate-limited.")
+                if st.session_state.get("wellness_answers"):
+                    st.session_state["recommendation"] = fetch_recommendation(
+                        st.session_state["wellness_answers"]
                     )
-                    st.success("Removed from saved articles.")
-                    st.rerun()
-            elif col_b.button(
-                "Save article",
-                key=f"save_{article['url']}",
-                use_container_width=True,
-            ):
-                save_article_for_user(int(st.session_state["user_id"]), article)
-                st.success("Article saved.")
-                st.rerun()
+            except (requests.RequestException, ValueError) as exc:
+                show_api_error(exc)
+    st.caption(f"Backend: {API_BASE_URL}")
+
+if st.session_state.get("selected_article"):
+    render_article_action_page(st.session_state["selected_article"])
+else:
+    if not st.session_state.get("recommendation"):
+        try:
+            st.session_state["recommendation"] = fetch_recommendation(
+                st.session_state.get("wellness_answers", {})
+            )
+        except (requests.RequestException, ValueError) as exc:
+            show_api_error(exc)
+            st.stop()
+    render_today_dashboard()

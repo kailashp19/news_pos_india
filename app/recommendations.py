@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.config import MIN_POSITIVITY_SCORE
+from app.curated import TRUSTED_RECOMMENDATION_SOURCES, load_curated_resources
 from app.db import list_articles
 
 
@@ -73,6 +74,8 @@ AVOIDANCE_TO_ACTION = {
     "Social tasks": "Social connection",
 }
 
+TRUSTED_SOURCE_SET = set(TRUSTED_RECOMMENDATION_SOURCES)
+
 
 def normalize_answers(answers: dict) -> dict:
     return {str(key): str(value) for key, value in answers.items() if value is not None}
@@ -132,6 +135,52 @@ def article_action(answers: dict) -> str:
     return choose_small_action(answers)
 
 
+def article_to_dict(article) -> dict:
+    return {
+        "id": None,
+        "title": article.title,
+        "url": article.url,
+        "source": article.source,
+        "summary": article.summary,
+        "category": article.category,
+        "image_url": article.image_url,
+        "published_at": article.published_at,
+        "positivity_score": article.positivity_score,
+        "created_at": "",
+    }
+
+
+def trusted_articles(limit: int, dimension: str) -> list[dict]:
+    articles = [
+        article
+        for article in list_articles(
+            limit=max(limit * 4, 24),
+            min_score=MIN_POSITIVITY_SCORE,
+            dimension=dimension,
+        )
+        if article.get("source") in TRUSTED_SOURCE_SET
+    ]
+
+    curated = [
+        article_to_dict(article)
+        for article in load_curated_resources()
+        if article.source in TRUSTED_SOURCE_SET
+        and (dimension == "all" or article.category == dimension)
+    ]
+
+    seen = {article["url"] for article in articles}
+    articles.extend(article for article in curated if article["url"] not in seen)
+    return sorted(
+        articles,
+        key=lambda article: (
+            article.get("positivity_score", 0),
+            article.get("published_at", ""),
+            article.get("title", ""),
+        ),
+        reverse=True,
+    )[:limit]
+
+
 def recommend(answers: dict, limit: int = 6) -> dict:
     answers = normalize_answers(answers)
     interest = answers.get("interest", "General positivity")
@@ -139,20 +188,12 @@ def recommend(answers: dict, limit: int = 6) -> dict:
     focus_a = SUPPORT_FOCUS.get(answers.get("support"), "Choose a gentle starting point")
     focus_b = INTEREST_FOCUS.get(interest, "daily positivity")
 
-    articles = list_articles(
-        limit=max(limit * 2, 12),
-        min_score=MIN_POSITIVITY_SCORE,
-        dimension=dimension,
-    )
+    articles = trusted_articles(max(limit * 2, 12), dimension)
     if len(articles) < limit and dimension != "all":
         seen = {article["url"] for article in articles}
         articles.extend(
             article
-            for article in list_articles(
-                limit=limit * 2,
-                min_score=MIN_POSITIVITY_SCORE,
-                dimension="all",
-            )
+            for article in trusted_articles(limit * 2, "all")
             if article["url"] not in seen
         )
 
@@ -177,5 +218,6 @@ def recommend(answers: dict, limit: int = 6) -> dict:
         "reason": recommendation_reason(answers),
         "article_action": article_action(answers),
         "dimension": dimension,
+        "source_policy": "Only trusted sources such as WHO, United Nations, UNICEF, NIMHANS, IIMs, Art of Living, RBI, and SEBI are used for recommendations.",
         "articles": articles[:limit],
     }

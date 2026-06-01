@@ -46,32 +46,34 @@ def apply_theme() -> None:
         """
         <style>
         :root {
-            --bg: #151a1e;
-            --surface: #1f262b;
-            --surface-soft: #263038;
-            --border: #3a454e;
-            --text: #eef3f2;
-            --muted: #aab7b7;
-            --accent: #62d6a4;
-            --accent-strong: #35b887;
-            --accent-blue: #8fc7ff;
+            --bg: #1d2638;
+            --surface: #222c40;
+            --surface-soft: #2a354b;
+            --surface-raised: #253048;
+            --border: #36435a;
+            --border-soft: #2f3a50;
+            --text: #f5f7fb;
+            --muted: #aeb8ca;
+            --accent: #6ee7a8;
+            --accent-strong: #35c985;
+            --accent-blue: #89b7ff;
+            --accent-warm: #ff6b5f;
             --danger: #ff8d8d;
         }
 
         .stApp {
-            background:
-                radial-gradient(circle at top left, rgba(98, 214, 164, 0.08), transparent 32rem),
-                linear-gradient(180deg, #182026 0%, var(--bg) 42%, #12171a 100%);
+            background: var(--bg);
             color: var(--text);
         }
 
         .block-container {
-            padding-top: 2rem;
+            max-width: 1180px;
+            padding-top: 4rem;
             padding-bottom: 3rem;
         }
 
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #202a30 0%, #1a2025 100%);
+            background: #182033;
             border-right: 1px solid var(--border);
         }
 
@@ -80,23 +82,45 @@ def apply_theme() -> None:
         }
 
         [data-testid="stMetric"] {
-            background: rgba(31, 38, 43, 0.92);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+            padding: 18px;
+            box-shadow: none;
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"] {
-            background: rgba(31, 38, 43, 0.9);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
-            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+            box-shadow: none;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+            border-color: #53617c;
+            background: var(--surface-raised);
         }
 
         h1, h2, h3 {
             color: var(--text);
             letter-spacing: 0;
+        }
+
+        h1,
+        h1 span,
+        [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stMarkdownContainer"] h1 span {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(2.15rem, 4vw, 3.5rem);
+            line-height: 1.05;
+            margin-bottom: 0.85rem;
+        }
+
+        h2, h3,
+        h2 span, h3 span,
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3 {
+            font-family: Georgia, "Times New Roman", serif;
         }
 
         p, span, label, [data-testid="stMarkdownContainer"] {
@@ -112,7 +136,7 @@ def apply_theme() -> None:
         }
 
         .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
+            gap: 6px;
             border-bottom: 1px solid var(--border);
         }
 
@@ -133,7 +157,7 @@ def apply_theme() -> None:
         div[data-baseweb="input"] > div,
         div[data-baseweb="select"] > div,
         textarea {
-            background: #151b20 !important;
+            background: var(--surface-soft) !important;
             border-color: var(--border) !important;
             color: var(--text) !important;
         }
@@ -142,7 +166,7 @@ def apply_theme() -> None:
         [data-testid="stTextInput"] div,
         [data-baseweb="input"],
         [data-baseweb="input"] input {
-            background-color: #151b20 !important;
+            background-color: var(--surface-soft) !important;
             color: var(--text) !important;
             border-color: var(--border) !important;
         }
@@ -153,33 +177,34 @@ def apply_theme() -> None:
         }
 
         [data-testid="stForm"] {
-            background: rgba(31, 38, 43, 0.72);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 16px;
+            padding: 18px;
         }
 
         .stButton > button,
         .stLinkButton > a {
             border-radius: 8px;
             border: 1px solid var(--border);
-            background: #253039;
+            background: var(--surface-soft);
             color: var(--text);
             font-weight: 600;
+            min-height: 2.75rem;
         }
 
         .stButton > button:hover,
         .stLinkButton > a:hover {
             border-color: var(--accent);
-            background: #2b3a42;
+            background: #303d56;
             color: var(--text);
         }
 
         .stButton > button[kind="primary"],
         .stButton > button[data-testid="baseButton-primary"] {
-            background: linear-gradient(135deg, var(--accent-strong), #4fc3a1);
+            background: #ef5f54;
             border-color: transparent !important;
-            color: #071512 !important;
+            color: #fffafa !important;
         }
 
         button[data-baseweb="tab"] {
@@ -192,11 +217,11 @@ def apply_theme() -> None:
         }
 
         [data-baseweb="tab-highlight"] {
-            background-color: var(--accent) !important;
+            background-color: var(--accent-warm) !important;
         }
 
         [data-testid="stAlert"] {
-            background: rgba(38, 48, 56, 0.96);
+            background: var(--surface-soft);
             border: 1px solid var(--border);
             color: var(--text);
         }
@@ -211,12 +236,42 @@ def apply_theme() -> None:
         }
 
         code {
-            background: #101518;
+            background: #12192a;
             color: var(--accent);
         }
 
         .stSlider [data-baseweb="slider"] {
             color: var(--accent);
+        }
+
+        [data-testid="stRadio"] label p {
+            color: var(--text);
+        }
+
+        [role="radiogroup"] {
+            gap: 0.5rem;
+        }
+
+        [role="radiogroup"] label {
+            background: #202a3f;
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            padding: 0.35rem 0.6rem;
+            min-height: 2.25rem;
+        }
+
+        [data-testid="stMetricLabel"] p {
+            color: var(--muted);
+        }
+
+        [data-testid="stMetricValue"] {
+            color: var(--text);
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        .st-emotion-cache-1wmy9hl,
+        .st-emotion-cache-ocqkz7 {
+            gap: 1rem;
         }
         </style>
         """,
@@ -586,6 +641,12 @@ def render_today_dashboard() -> None:
 
     st.divider()
     st.subheader("Recommended For You")
+    st.caption(
+        recommendation.get(
+            "source_policy",
+            "Recommendations use only trusted wellness sources.",
+        )
+    )
     if not articles:
         st.info("No recommended articles are available yet. Try refreshing feeds or changing your check-in.")
         return

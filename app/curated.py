@@ -119,7 +119,93 @@ CURATED_RESOURCES = [
         category="mental",
         positivity_score=0.82,
     ),
+    Article(
+        title="Art of Living: Meditation for beginners",
+        url="https://www.artofliving.org/in-en/meditation/meditation-for-you/meditation-for-beginners",
+        source="Art of Living",
+        summary=(
+            "Art of Living introduces meditation as a simple daily practice for calming "
+            "the mind, improving self-awareness, and creating a steady habit that can "
+            "begin with a short, comfortable session."
+        ),
+        category="spiritual",
+        positivity_score=0.84,
+    ),
+    Article(
+        title="Art of Living: Breathing exercises for relaxation",
+        url="https://www.artofliving.org/in-en/yoga/breathing-techniques",
+        source="Art of Living",
+        summary=(
+            "Art of Living shares gentle breathing practices that can support relaxation "
+            "and mindful awareness. Users can keep the activity brief and stop if it "
+            "does not feel comfortable."
+        ),
+        category="mental",
+        positivity_score=0.84,
+    ),
+    Article(
+        title="United Nations: Sustainable Development Goal 3",
+        url="https://sdgs.un.org/goals/goal3",
+        source="United Nations",
+        summary=(
+            "The United Nations describes good health and well-being as a global goal "
+            "that includes healthier lives, prevention, mental well-being, and access "
+            "to reliable public-health information."
+        ),
+        category="physical",
+        positivity_score=0.82,
+    ),
+    Article(
+        title="United Nations: International Day of Happiness",
+        url="https://www.un.org/en/observances/happiness-day",
+        source="United Nations",
+        summary=(
+            "The United Nations frames happiness and well-being as important measures "
+            "of human progress, encouraging balanced development, connection, and "
+            "attention to quality of life."
+        ),
+        category="social",
+        positivity_score=0.8,
+    ),
+    Article(
+        title="RBI: Financial education for public awareness",
+        url="https://www.rbi.org.in/FinancialEducation/",
+        source="Reserve Bank of India",
+        summary=(
+            "The Reserve Bank of India provides public financial-education resources "
+            "on banking awareness, safe money habits, and informed financial decisions "
+            "for everyday consumers."
+        ),
+        category="financial",
+        positivity_score=0.84,
+    ),
+    Article(
+        title="SEBI: Investor education and awareness",
+        url="https://investor.sebi.gov.in/",
+        source="SEBI",
+        summary=(
+            "SEBI's investor education portal helps people understand investing basics, "
+            "avoid common mistakes, and build more informed financial habits without "
+            "treating content as personalized financial advice."
+        ),
+        category="financial",
+        positivity_score=0.84,
+    ),
 ]
+
+
+TRUSTED_RECOMMENDATION_SOURCES = (
+    "Art of Living",
+    "IIM Ahmedabad",
+    "IIM Bangalore",
+    "NIMHANS",
+    "Reserve Bank of India",
+    "SEBI",
+    "UNICEF India",
+    "United Nations",
+    "WHO",
+    "WHO India",
+)
 
 
 def load_curated_resources() -> list[Article]:

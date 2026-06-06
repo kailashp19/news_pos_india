@@ -393,7 +393,7 @@ def greeting() -> str:
 
 
 def render_welcome_screen() -> None:
-    st.title("Let's build your personal wellness plan in 2 minutes.")
+    st.title("Let's build your personal wellness plan.")
     st.write(
         "This app is for general wellness education and gentle habit-building. "
         "It does not provide medical advice, diagnosis, or treatment."
@@ -410,92 +410,185 @@ def render_welcome_screen() -> None:
 
 def render_wellness_questions() -> None:
     st.title("Your Wellness Check-In")
-    st.caption("Eight quick choices. No diagnosis, just preferences for today.")
+    st.caption(
+        "Fifteen quick choices. No diagnosis, no medical details, and no private "
+        "financial numbers required."
+    )
 
     with st.form("wellness_check_form"):
-        st.subheader("Today's State")
-        feeling = st.radio(
-            "How are you feeling today?",
-            ["Calm", "Okay", "Tired", "Stressed", "Low energy", "Prefer not to say"],
+        st.subheader("Mental Health")
+        mental_support = st.radio(
+            "What would support your mind today?",
+            [
+                "Calm my thoughts",
+                "Feel a little uplifted",
+                "Improve focus",
+                "Wind down for rest",
+                "Not sure",
+            ],
             index=1,
             horizontal=True,
         )
-        support = st.radio(
-            "What kind of support would feel helpful today?",
+        mental_effort = st.radio(
+            "How much mental effort feels okay?",
             [
-                "Something calming",
-                "Something motivating",
-                "Something reflective",
-                "Something practical",
-                "Something light and easy",
+                "Tiny action",
+                "Short action",
+                "Reading only",
+                "Prefer not to say",
+            ],
+            horizontal=True,
+        )
+        mental_avoid = st.radio(
+            "Anything you want to avoid mentally today?",
+            [
+                "Deep reflection",
+                "Breathing exercises",
+                "Journaling",
+                "No preference",
+            ],
+            index=3,
+            horizontal=True,
+        )
+
+        st.subheader("Physical Health")
+        physical_state = st.radio(
+            "How does your body feel today?",
+            [
+                "Okay",
+                "Tired",
+                "Stiff",
+                "Restless",
+                "Prefer not to say",
+            ],
+            horizontal=True,
+        )
+        movement_comfort = st.radio(
+            "What kind of movement feels comfortable?",
+            [
+                "No movement today",
+                "Seated stretch",
+                "Short walk",
+                "Either is fine",
+            ],
+            index=3,
+            horizontal=True,
+        )
+        physical_boundary = st.radio(
+            "Any physical boundary for today?",
+            [
+                "Avoid physical activity",
+                "Avoid standing",
+                "Keep it seated",
+                "No preference",
+            ],
+            index=3,
+            horizontal=True,
+        )
+
+        st.subheader("Social Health")
+        connection_need = st.radio(
+            "What kind of connection feels helpful?",
+            [
+                "Quiet time alone",
+                "Send a kind message",
+                "Feel more connected",
+                "Appreciate someone privately",
+                "Not sure",
+            ],
+            index=4,
+            horizontal=True,
+        )
+        social_comfort = st.radio(
+            "What social action feels comfortable?",
+            [
+                "No social task today",
+                "Private reflection",
+                "Send a simple message",
+                "Talk to a trusted person",
+            ],
+            horizontal=True,
+        )
+        privacy_preference = st.radio(
+            "How private should today's social suggestion be?",
+            [
+                "Keep this private",
+                "Anonymous/general content only",
+                "Simple action ideas are okay",
+            ],
+            horizontal=True,
+        )
+
+        st.subheader("Financial Health")
+        money_support = st.radio(
+            "What kind of money support would feel useful?",
+            [
+                "Reduce money anxiety",
+                "Organize one small task",
+                "Learn basics",
+                "Avoid money today",
+                "Not sure",
+            ],
+            index=4,
+            horizontal=True,
+        )
+        money_action = st.radio(
+            "What financial action feels safe today?",
+            [
+                "Read only",
+                "Check one bill date",
+                "List recent spending",
+                "Save a small amount",
+                "No task today",
+            ],
+            horizontal=True,
+        )
+        money_boundary = st.radio(
+            "Any money boundary for today?",
+            [
+                "No numbers today",
+                "No investment content",
+                "No decisions today",
+                "No preference",
+            ],
+            index=3,
+            horizontal=True,
+        )
+
+        st.subheader("Spiritual Health")
+        grounding_need = st.radio(
+            "What feels grounding today?",
+            [
+                "Gratitude",
+                "Purpose",
+                "Meditation",
+                "Values or prayer",
+                "Nature or quiet",
                 "Not sure",
             ],
             index=5,
             horizontal=True,
         )
-        time = st.radio(
-            "How much time do you want to spend today?",
-            ["1 minute", "3 minutes", "5 minutes", "10 minutes", "Just reading today"],
-            index=1,
-            horizontal=True,
-        )
-
-        st.subheader("Comfort Level")
-        action = st.radio(
-            "What type of action feels comfortable today?",
+        spiritual_practice = st.radio(
+            "What kind of grounding practice feels comfortable?",
             [
-                "Reading",
-                "Reflection",
-                "Breathing",
-                "Journaling",
-                "Light movement",
-                "Social connection",
-                "Financial awareness",
+                "Read an insight",
+                "One sentence reflection",
+                "Short silence",
+                "Breathing optional",
+                "No practice today",
             ],
             horizontal=True,
         )
-        no_movement = st.radio(
-            "Would you prefer actions that do not require physical movement?",
-            ["Yes", "No", "Either is fine"],
-            index=2,
-            horizontal=True,
-        )
-
-        st.subheader("Energy Level")
-        energy = st.radio(
-            "What is your current energy level?",
-            ["Very low", "Low", "Medium", "High"],
-            index=2,
-            horizontal=True,
-        )
-
-        st.subheader("Safety Boundary")
-        avoid = st.radio(
-            "Is there anything you want to avoid today?",
+        spiritual_boundary = st.radio(
+            "Any spiritual boundary for today?",
             [
-                "Physical activity",
-                "Emotional reflection",
-                "Breathing exercises",
-                "Financial tasks",
-                "Social tasks",
+                "Avoid religious content",
+                "Avoid meditation",
+                "Avoid deep purpose questions",
                 "No preference",
             ],
-            index=5,
-            horizontal=True,
-        )
-
-        st.subheader("Wellness Interest")
-        interest = st.radio(
-            "Which area would you like to explore today?",
-            [
-                "Mental calm",
-                "Physical energy",
-                "Relationships",
-                "Money habits",
-                "Purpose and meaning",
-                "General positivity",
-            ],
-            index=5,
+            index=3,
             horizontal=True,
         )
 
@@ -503,14 +596,21 @@ def render_wellness_questions() -> None:
 
     if submitted:
         answers = {
-            "feeling": feeling,
-            "support": support,
-            "time": time,
-            "action": action,
-            "no_movement": no_movement,
-            "energy": energy,
-            "avoid": avoid,
-            "interest": interest,
+            "mental_support": mental_support,
+            "mental_effort": mental_effort,
+            "mental_avoid": mental_avoid,
+            "physical_state": physical_state,
+            "movement_comfort": movement_comfort,
+            "physical_boundary": physical_boundary,
+            "connection_need": connection_need,
+            "social_comfort": social_comfort,
+            "privacy_preference": privacy_preference,
+            "money_support": money_support,
+            "money_action": money_action,
+            "money_boundary": money_boundary,
+            "grounding_need": grounding_need,
+            "spiritual_practice": spiritual_practice,
+            "spiritual_boundary": spiritual_boundary,
         }
         try:
             st.session_state["recommendation"] = fetch_recommendation(answers)
@@ -533,9 +633,16 @@ def save_or_unsave_button(article: dict, saved_urls: set[str], key_prefix: str) 
         st.rerun()
 
 
-def render_article_action_page(article: dict) -> None:
+def group_for_article(article: dict) -> dict:
     recommendation = st.session_state.get("recommendation", {})
-    answers = st.session_state.get("wellness_answers", {})
+    for group in recommendation.get("groups", []):
+        if article.get("category") == group.get("dimension"):
+            return group
+    return {}
+
+
+def render_article_action_page(article: dict) -> None:
+    group = group_for_article(article)
     saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
 
     if st.button("Back to today's plan"):
@@ -559,18 +666,26 @@ def render_article_action_page(article: dict) -> None:
     )
 
     st.subheader("Why This Matters For You")
-    feeling = answers.get("feeling", "your current state")
-    interest = answers.get("interest", "general positivity")
     st.write(
-        f'You selected "{feeling}" and chose "{interest}" during your wellness check. '
-        f"{recommendation.get('reason', 'This article is matched to your preferences for today')}"
+        group.get(
+            "reason",
+            "This article is matched to the boundaries and preferences you chose today.",
+        )
     )
 
     st.subheader("Today's Action")
-    st.write(recommendation.get("article_action", "Take one small idea from this article today."))
+    st.write(group.get("action", "Take one small idea from this article today."))
     if st.button("Mark as Done", type="primary"):
         st.session_state["done_articles"].add(article["url"])
         st.success("Done. Small steps count.")
+
+    st.subheader("Insight")
+    st.write(
+        group.get(
+            "insight",
+            "A useful wellness action can be small, private, and complete in under a minute.",
+        )
+    )
 
     st.subheader("Reflection")
     st.radio(
@@ -599,7 +714,6 @@ def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) ->
         meta = [
             f"Source: {article['source']}",
             f"Wellness area: {article['category'].title()}",
-            f"Practical relevance: {article['positivity_score']:.2f}",
         ]
         published = format_date(article.get("published_at", ""))
         if published:
@@ -620,22 +734,36 @@ def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) ->
         col_c.link_button("Full Article", article["url"], use_container_width=True)
 
 
+def render_recommendation_group(group: dict, saved_urls: set[str]) -> None:
+    st.subheader(group.get("title", "Wellness recommendation"))
+    st.write(group.get("action", "Choose one small action for today."))
+    st.caption(group.get("reason", "Matched to your preferences and boundaries."))
+    st.markdown(f"**Insight:** {group.get('insight', 'Small actions count.')}")
+
+    articles = group.get("articles", [])
+    if articles:
+        st.markdown("**Trusted reading:**")
+        for article in articles:
+            render_article_card(
+                article,
+                saved_urls,
+                f"{group.get('dimension', 'group')}_trusted",
+            )
+    st.divider()
+
+
 def render_today_dashboard() -> None:
     recommendation = st.session_state.get("recommendation", {})
-    articles = recommendation.get("articles", [])
+    groups = recommendation.get("groups", [])
     saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
 
     st.title(f"{greeting()}, {display_name()}")
-    st.caption("A gentle daily plan based on your check-in.")
+    st.caption("A gentle daily plan based on your preferences and boundaries.")
 
-    col_focus, col_score = st.columns([2, 1])
-    with col_focus:
-        st.subheader("Today's Focus")
-        st.write(recommendation.get("today_focus", "Build one small wellness habit"))
-    with col_score:
-        st.metric("Your Wellness Score", f"{recommendation.get('wellness_score', 56)}/100")
+    st.subheader("Today's Focus")
+    st.write(recommendation.get("today_focus", "Choose one gentle next step"))
 
-    st.subheader("Today's Plan")
+    st.subheader("Suggested Actions")
     for index, item in enumerate(recommendation.get("plan", []), start=1):
         st.write(f"{index}. {item}")
 
@@ -647,12 +775,12 @@ def render_today_dashboard() -> None:
             "Recommendations use only trusted wellness sources.",
         )
     )
-    if not articles:
+    if not groups:
         st.info("No recommended articles are available yet. Try refreshing feeds or changing your check-in.")
         return
 
-    for article in articles:
-        render_article_card(article, saved_urls, "recommended")
+    for group in groups:
+        render_recommendation_group(group, saved_urls)
 
 
 def render_auth_screen() -> None:

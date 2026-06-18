@@ -674,7 +674,9 @@ def render_article_action_page(article: dict) -> None:
     )
 
     st.subheader("Today's Action")
-    st.write(group.get("action", "Take one small idea from this article today."))
+    st.write(group.get("action_title", "Take one small idea from this article today."))
+    for step in group.get("action_steps", []):
+        st.write(f"- {step}")
     if st.button("Mark as Done", type="primary"):
         st.session_state["done_articles"].add(article["url"])
         st.success("Done. Small steps count.")
@@ -715,6 +717,8 @@ def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) ->
             f"Source: {article['source']}",
             f"Wellness area: {article['category'].title()}",
         ]
+        if article.get("match_score") is not None:
+            meta.append(f"Match: {article['match_score']:.1f}")
         published = format_date(article.get("published_at", ""))
         if published:
             meta.append(f"Published: {published}")
@@ -736,13 +740,17 @@ def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) ->
 
 def render_recommendation_group(group: dict, saved_urls: set[str]) -> None:
     st.subheader(group.get("title", "Wellness recommendation"))
-    st.write(group.get("action", "Choose one small action for today."))
+    st.markdown(f"**{group.get('action_title', 'Suggested action')}**")
+    for step in group.get("action_steps", []):
+        st.write(f"- {step}")
     st.caption(group.get("reason", "Matched to your preferences and boundaries."))
+    if group.get("tags"):
+        st.caption("Matched signals: " + ", ".join(group["tags"]))
     st.markdown(f"**Insight:** {group.get('insight', 'Small actions count.')}")
 
     articles = group.get("articles", [])
     if articles:
-        st.markdown("**Trusted reading:**")
+        st.markdown("**Trusted reading matched to this action:**")
         for article in articles:
             render_article_card(
                 article,

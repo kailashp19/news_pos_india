@@ -23,7 +23,7 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8010").rstrip("/")
 
 
 st.set_page_config(
-    page_title="India Holistic Wellness Feed",
+    page_title="Joyverse",
     layout="wide",
 )
 
@@ -273,6 +273,151 @@ def apply_theme() -> None:
         .st-emotion-cache-ocqkz7 {
             gap: 1rem;
         }
+
+        .joyverse-landing {
+            min-height: min(760px, calc(100vh - 7rem));
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .joyverse-kicker {
+            color: var(--accent);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .joyverse-title {
+            color: var(--text);
+            font-family: Georgia, "Times New Roman", serif !important;
+            font-size: clamp(4.25rem, 11vw, 7.5rem) !important;
+            line-height: 0.9 !important;
+            margin: 0 0 1rem !important;
+        }
+
+        .joyverse-tagline {
+            color: var(--text);
+            font-size: clamp(1.35rem, 2.6vw, 2.2rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .joyverse-copy {
+            color: var(--muted);
+            font-size: 1.05rem;
+            line-height: 1.65;
+            max-width: 42rem;
+        }
+
+        .joyverse-icon-card {
+            align-items: center;
+            aspect-ratio: 1 / 1;
+            background:
+                radial-gradient(circle at 50% 28%, rgba(110, 231, 168, 0.18), transparent 34%),
+                linear-gradient(145deg, #25314a 0%, #1a2337 100%);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            min-height: 280px;
+            position: relative;
+        }
+
+        .joyverse-icon {
+            color: var(--text);
+            font-size: clamp(7rem, 18vw, 12rem);
+            filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.32));
+            line-height: 1;
+        }
+
+        .joyverse-icon-caption {
+            bottom: 1rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+            left: 1rem;
+            position: absolute;
+            right: 1rem;
+            text-align: center;
+        }
+
+        .joyverse-feature-row {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: 2rem;
+        }
+
+        .joyverse-feature {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.35;
+            padding: 0.9rem;
+        }
+
+        @media (max-width: 900px) {
+            .block-container {
+                padding-left: 1.25rem;
+                padding-right: 1.25rem;
+                padding-top: 2rem;
+            }
+
+            .joyverse-landing {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+                min-height: auto;
+            }
+
+            .joyverse-icon-card {
+                min-height: 220px;
+                order: -1;
+            }
+
+            .joyverse-feature-row {
+                grid-template-columns: 1fr;
+            }
+
+            [role="radiogroup"] {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            [role="radiogroup"] label {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .block-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+                padding-top: 1.25rem;
+            }
+
+            .joyverse-title {
+                font-size: 3.75rem !important;
+            }
+
+            .joyverse-tagline {
+                font-size: 1.35rem;
+            }
+
+            .joyverse-copy {
+                font-size: 1rem;
+            }
+
+            .stButton > button,
+            .stLinkButton > a {
+                width: 100%;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -280,6 +425,7 @@ def apply_theme() -> None:
 
 
 def init_session_state() -> None:
+    st.session_state.setdefault("landing_seen", False)
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("user_id", None)
     st.session_state.setdefault("user_email", "")
@@ -294,6 +440,7 @@ def init_session_state() -> None:
 
 
 def logout() -> None:
+    st.session_state["landing_seen"] = False
     st.session_state["authenticated"] = False
     st.session_state["user_id"] = None
     st.session_state["user_email"] = ""
@@ -390,6 +537,39 @@ def greeting() -> str:
     if hour < 17:
         return "Good afternoon"
     return "Good evening"
+
+
+def render_landing_page() -> None:
+    st.markdown(
+        """
+        <section class="joyverse-landing" aria-label="Joyverse landing page">
+            <div>
+                <div class="joyverse-kicker">Personal wellness for everyday India</div>
+                <h1 class="joyverse-title">Joyverse</h1>
+                <div class="joyverse-tagline">Helping India Smile Everyday</div>
+                <p class="joyverse-copy">
+                    A gentle wellness companion that turns your preferences into
+                    small actions, trusted reading, and practical insights across
+                    mental, physical, social, financial, and spiritual well-being.
+                </p>
+                <div class="joyverse-feature-row">
+                    <div class="joyverse-feature">Private check-ins without medical or financial details.</div>
+                    <div class="joyverse-feature">Small actions matched to your comfort and energy.</div>
+                    <div class="joyverse-feature">Trusted sources like WHO, UN, IIMs, RBI, SEBI, and more.</div>
+                </div>
+            </div>
+            <div class="joyverse-icon-card" aria-label="Person in a free and joyful state">
+                <div class="joyverse-icon" aria-hidden="true">&#128588;</div>
+                <div class="joyverse-icon-caption">A small daily lift for body, mind, money, people, and purpose.</div>
+            </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.button("Start your Joyverse", type="primary", use_container_width=True):
+        st.session_state["landing_seen"] = True
+        st.rerun()
 
 
 def render_welcome_screen() -> None:
@@ -792,7 +972,8 @@ def render_today_dashboard() -> None:
 
 
 def render_auth_screen() -> None:
-    st.title("India Holistic Wellness Feed")
+    st.title("Joyverse")
+    st.caption("Helping India Smile Everyday")
 
     login_tab, register_tab, reset_tab = st.tabs(
         ["Login", "Register", "Forgot Password"]
@@ -892,12 +1073,18 @@ def render_auth_screen() -> None:
 apply_theme()
 init_session_state()
 
+if not st.session_state["landing_seen"] and not st.session_state["authenticated"]:
+    render_landing_page()
+    st.stop()
+
 if not st.session_state["authenticated"]:
     render_auth_screen()
     st.stop()
 
 
 with st.sidebar:
+    st.markdown("## Joyverse")
+    st.caption("Helping India Smile Everyday")
     st.markdown(
         f"### {st.session_state['user_avatar']} {st.session_state['user_email']}"
     )

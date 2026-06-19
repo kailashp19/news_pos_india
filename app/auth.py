@@ -13,6 +13,7 @@ from app.db import connect
 
 
 EMAIL_PATTERN = re.compile(r"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$", re.IGNORECASE)
+USERNAME_PATTERN = re.compile(r"^[A-Z0-9]+$", re.IGNORECASE)
 PBKDF2_ITERATIONS = 260_000
 RESET_TOKEN_MINUTES = 20
 AVATAR_PALETTE = (
@@ -35,6 +36,7 @@ def init_auth_db() -> None:
             """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL DEFAULT '',
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 avatar_seed TEXT NOT NULL DEFAULT '',
@@ -42,7 +44,16 @@ def init_auth_db() -> None:
             )
             """
         )
+        ensure_column(connection, "users", "username", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "users", "avatar_seed", "TEXT NOT NULL DEFAULT ''")
+        backfill_usernames(connection)
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique
+            ON users (username)
+            WHERE username != ''
+            """
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -88,8 +99,55 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def normalize_username(username: str) -> str:
+    return username.strip().lower()
+
+
 def is_valid_email(email: str) -> bool:
     return bool(EMAIL_PATTERN.fullmatch(normalize_email(email)))
+
+
+def is_valid_username(username: str) -> bool:
+    username = normalize_username(username)
+    return 3 <= len(username) <= 24 and bool(USERNAME_PATTERN.fullmatch(username))
+
+
+def username_from_email(email: str, fallback_id: int) -> str:
+    base = re.sub(r"[^A-Za-z0-9]", "", email.split("@", 1)[0]).lower()
+    return base[:18] or f"user{fallback_id}"
+
+
+def backfill_usernames(connection) -> None:
+    rows = connection.execute(
+        """
+        SELECT id, email, username
+        FROM users
+        WHERE username = ''
+        ORDER BY id
+        """
+    ).fetchall()
+    used = {
+        row["username"]
+        for row in connection.execute(
+            "SELECT username FROM users WHERE username != ''"
+        ).fetchall()
+    }
+    for row in rows:
+        candidate = username_from_email(row["email"], row["id"])
+        username = candidate
+        suffix = 2
+        while username in used:
+            username = f"{candidate[:18]}{suffix}"
+            suffix += 1
+        used.add(username)
+        connection.execute(
+            """
+            UPDATE users
+            SET username = ?, avatar_seed = ?
+            WHERE id = ?
+            """,
+            (username, username, row["id"]),
+        )
 
 
 def hash_password(password: str, salt: str | None = None) -> str:
@@ -125,7 +183,7 @@ def get_user_by_email(email: str) -> dict | None:
     with connect() as connection:
         row = connection.execute(
             """
-            SELECT id, email, password_hash, avatar_seed, created_at
+            SELECT id, username, email, password_hash, avatar_seed, created_at
             FROM users
             WHERE email = ?
             """,
@@ -134,9 +192,23 @@ def get_user_by_email(email: str) -> dict | None:
         return dict(row) if row else None
 
 
+def get_user_by_username(username: str) -> dict | None:
+    with connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, username, email, password_hash, avatar_seed, created_at
+            FROM users
+            WHERE username = ?
+            """,
+            (normalize_username(username),),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def avatar_for_seed(seed: str) -> str:
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
-    return AVATAR_PALETTE[int(digest[:8], 16) % len(AVATAR_PALETTE)]
+    emoji = AVATAR_PALETTE[int(digest[:8], 16) % len(AVATAR_PALETTE)]
+    return f"{emoji} {digest[:6].upper()}"
 
 
 def send_email(to_email: str, subject: str, body: str) -> tuple[bool, str]:
@@ -168,37 +240,45 @@ def send_email(to_email: str, subject: str, body: str) -> tuple[bool, str]:
     return True, "Email sent."
 
 
-def register_user(email: str, password: str) -> tuple[bool, str]:
+def register_user(username: str, email: str, password: str) -> tuple[bool, str]:
+    username = normalize_username(username)
     email = normalize_email(email)
+    if not is_valid_username(username):
+        return False, "Username must be 3-24 letters or numbers only."
     if not is_valid_email(email):
         return False, "Please enter a valid email address."
     if len(password) < 8:
         return False, "Password must be at least 8 characters long."
+    if get_user_by_username(username):
+        return False, "This username is already registered."
     if get_user_by_email(email):
         return False, "This email is already registered."
 
     with connect() as connection:
         connection.execute(
             """
-            INSERT INTO users (email, password_hash, avatar_seed)
-            VALUES (?, ?, ?)
+            INSERT INTO users (username, email, password_hash, avatar_seed)
+            VALUES (?, ?, ?, ?)
             """,
-            (email, hash_password(password), secrets.token_hex(16)),
+            (username, email, hash_password(password), username),
         )
 
     return True, "Registration successful. You can now log in."
 
 
-def authenticate_user(email: str, password: str) -> tuple[bool, str, dict | None]:
-    user = get_user_by_email(email)
+def authenticate_user(username: str, password: str) -> tuple[bool, str, dict | None]:
+    if not is_valid_username(username):
+        return False, "Username must be 3-24 letters or numbers only.", None
+    user = get_user_by_username(username)
     if not user:
-        return False, "Email is not registered.", None
+        return False, "Username is not registered.", None
     if not verify_password(password, user["password_hash"]):
         return False, "Password does not match.", None
     return True, "Login successful.", {
         "id": user["id"],
+        "username": user["username"],
         "email": user["email"],
-        "avatar": avatar_for_seed(user["avatar_seed"] or user["email"]),
+        "avatar": avatar_for_seed(user["username"]),
     }
 
 
@@ -221,7 +301,7 @@ def create_password_reset_token(email: str) -> tuple[bool, str, str | None]:
             """,
             (user["id"], hash_token(token), expires_at.isoformat()),
         )
-    subject = "Reset your India Holistic Wellness Feed password"
+    subject = "Reset your Joyverse password"
     body = (
         "Use this code to reset your password:\n\n"
         f"{token}\n\n"

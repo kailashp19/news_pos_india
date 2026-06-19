@@ -294,9 +294,10 @@ def apply_theme() -> None:
         .joyverse-title {
             color: var(--text);
             font-family: Georgia, "Times New Roman", serif !important;
-            font-size: clamp(4.25rem, 11vw, 7.5rem) !important;
+            font-size: clamp(3.4rem, 7.5vw, 5.4rem) !important;
             line-height: 0.9 !important;
             margin: 0 0 1rem !important;
+            white-space: nowrap;
         }
 
         .joyverse-tagline {
@@ -402,7 +403,7 @@ def apply_theme() -> None:
             }
 
             .joyverse-title {
-                font-size: 3.75rem !important;
+                font-size: 3rem !important;
             }
 
             .joyverse-tagline {
@@ -428,6 +429,7 @@ def init_session_state() -> None:
     st.session_state.setdefault("landing_seen", False)
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("user_id", None)
+    st.session_state.setdefault("username", "")
     st.session_state.setdefault("user_email", "")
     st.session_state.setdefault("user_avatar", "")
     st.session_state.setdefault("reset_token", "")
@@ -443,6 +445,7 @@ def logout() -> None:
     st.session_state["landing_seen"] = False
     st.session_state["authenticated"] = False
     st.session_state["user_id"] = None
+    st.session_state["username"] = ""
     st.session_state["user_email"] = ""
     st.session_state["user_avatar"] = ""
     st.session_state["reset_token"] = ""
@@ -525,6 +528,9 @@ def show_api_error(exc: Exception) -> None:
 
 
 def display_name() -> str:
+    username = st.session_state.get("username", "")
+    if username:
+        return username
     email = st.session_state.get("user_email", "")
     name = email.split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
     return name.title() if name else "there"
@@ -981,15 +987,16 @@ def render_auth_screen() -> None:
 
     with login_tab:
         with st.form("login_form"):
-            email = st.text_input("Email", key="login_email")
+            username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
             submitted = st.form_submit_button("Login", type="primary")
 
         if submitted:
-            success, message, user = authenticate_user(email, password)
+            success, message, user = authenticate_user(username, password)
             if success and user:
                 st.session_state["authenticated"] = True
                 st.session_state["user_id"] = user["id"]
+                st.session_state["username"] = user["username"]
                 st.session_state["user_email"] = user["email"]
                 st.session_state["user_avatar"] = user["avatar"]
                 st.success(message)
@@ -999,6 +1006,11 @@ def render_auth_screen() -> None:
 
     with register_tab:
         with st.form("register_form"):
+            username = st.text_input(
+                "Username",
+                help="Use 3-24 letters or numbers only. No spaces or special characters.",
+                key="register_username",
+            )
             email = st.text_input("Email", key="register_email")
             password = st.text_input("Password", type="password", key="register_password")
             confirm_password = st.text_input(
@@ -1012,7 +1024,7 @@ def render_auth_screen() -> None:
             if password != confirm_password:
                 st.error("Passwords do not match.")
             else:
-                success, message = register_user(email, password)
+                success, message = register_user(username, email, password)
                 if success:
                     st.success(message)
                 else:
@@ -1086,7 +1098,7 @@ with st.sidebar:
     st.markdown("## Joyverse")
     st.caption("Helping India Smile Everyday")
     st.markdown(
-        f"### {st.session_state['user_avatar']} {st.session_state['user_email']}"
+        f"### {st.session_state['user_avatar']} {st.session_state['username']}"
     )
     st.session_state["active_view"] = st.radio(
         "View",

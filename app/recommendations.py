@@ -346,6 +346,63 @@ def top_tags(profile: dict, dimension: str) -> list[str]:
     return relevant[:3] or ["tiny", "read-only"]
 
 
+def engagement_days(answers: dict) -> int:
+    try:
+        return max(1, int(answers.get("_same_response_days", "1")))
+    except ValueError:
+        return 1
+
+
+def activity_minutes(days: int) -> int:
+    if days >= 10:
+        return 10
+    if days >= 7:
+        return 7
+    if days >= 4:
+        return 5
+    if days >= 2:
+        return 3
+    return 1
+
+
+def progress_note(days: int, minutes: int) -> str:
+    if days <= 1:
+        return "Start small today. One completed action is enough."
+    if days < 4:
+        return f"You have used a similar check-in for {days} days. Try a {minutes}-minute version today."
+    if days < 7:
+        return f"Your pattern is steady for {days} days. The action is slightly expanded to {minutes} minutes."
+    return f"You are building consistency. Today's version can take about {minutes} minutes if it still feels good."
+
+
+def scaled_steps(
+    steps: list[str],
+    dimension: str,
+    answers: dict,
+    avoid: set[str],
+) -> tuple[list[str], int, str]:
+    days = engagement_days(answers)
+    minutes = activity_minutes(days)
+    if days <= 1:
+        return steps, minutes, progress_note(days, minutes)
+
+    additions = {
+        "mental": f"Extend gently to about {minutes} minutes by repeating the calming cue or reading one more short tip.",
+        "physical": f"If comfortable, extend the body-friendly version to about {minutes} minutes without increasing intensity.",
+        "social": f"Add one small follow-up only if it feels light; keep the whole action near {minutes} minutes.",
+        "financial": f"Spend up to {minutes} minutes on the same tiny money task, without making a big decision.",
+        "spiritual": f"Stay with the grounding practice for about {minutes} minutes, or stop sooner if that feels better.",
+    }
+    if dimension == "physical" and "movement" in avoid:
+        additions["physical"] = f"Keep it seated or restful, and spend up to {minutes} minutes only if comfortable."
+    if dimension == "financial" and "money-action" in avoid:
+        additions["financial"] = f"Keep this reading-only for up to {minutes} minutes; no numbers or decisions needed."
+    if dimension == "social" and "outreach" in avoid:
+        additions["social"] = f"Keep it private for up to {minutes} minutes; no message is required."
+
+    return [*steps, additions[dimension]], minutes, progress_note(days, minutes)
+
+
 def action_for_dimension(answers: dict, profile: dict, dimension: str) -> dict:
     tags = set(top_tags(profile, dimension))
     avoid = set(profile["avoid"])
@@ -475,9 +532,13 @@ def action_for_dimension(answers: dict, profile: dict, dimension: str) -> dict:
                 "Return to it once later.",
             ]
 
+    steps, minutes, note = scaled_steps(steps, dimension, answers, avoid)
+
     return {
         "title": title,
         "steps": steps,
+        "activity_minutes": minutes,
+        "progress_note": note,
         "text": f"{title}: {steps[0]}",
     }
 
@@ -523,6 +584,8 @@ def recommendation_groups(answers: dict, limit: int) -> list[dict]:
                 "action": action["text"],
                 "action_title": action["title"],
                 "action_steps": action["steps"],
+                "activity_minutes": action["activity_minutes"],
+                "progress_note": action["progress_note"],
                 "insight": insight_for_dimension(profile, dimension),
                 "reason": reason_for_dimension(answers, profile, dimension),
                 "articles": articles,

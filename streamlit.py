@@ -17,6 +17,12 @@ from app.auth import (
     save_article_for_user,
     unsave_article_for_user,
 )
+from app.progress import (
+    init_progress_db,
+    progress_summary,
+    record_action_completion,
+    record_checkin,
+)
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8010").rstrip("/")
@@ -39,6 +45,7 @@ DIMENSION_OPTIONS = {
 
 
 init_auth_db()
+init_progress_db()
 
 
 def apply_theme() -> None:
@@ -429,7 +436,6 @@ def init_session_state() -> None:
     st.session_state.setdefault("landing_seen", False)
     st.session_state.setdefault("authenticated", False)
     st.session_state.setdefault("user_id", None)
-    st.session_state.setdefault("username", "")
     st.session_state.setdefault("user_email", "")
     st.session_state.setdefault("user_avatar", "")
     st.session_state.setdefault("reset_token", "")
@@ -439,13 +445,13 @@ def init_session_state() -> None:
     st.session_state.setdefault("recommendation", {})
     st.session_state.setdefault("selected_article", None)
     st.session_state.setdefault("done_articles", set())
+    st.session_state.setdefault("progress_summary", {})
 
 
 def logout() -> None:
     st.session_state["landing_seen"] = False
     st.session_state["authenticated"] = False
     st.session_state["user_id"] = None
-    st.session_state["username"] = ""
     st.session_state["user_email"] = ""
     st.session_state["user_avatar"] = ""
     st.session_state["reset_token"] = ""
@@ -453,6 +459,7 @@ def logout() -> None:
     st.session_state["wellness_answers"] = {}
     st.session_state["recommendation"] = {}
     st.session_state["selected_article"] = None
+    st.session_state["progress_summary"] = {}
     st.rerun()
 
 
@@ -527,10 +534,40 @@ def show_api_error(exc: Exception) -> None:
     )
 
 
+def action_key_for_group(group: dict) -> str:
+    return f"{group.get('dimension', 'general')}:{group.get('action_title', 'action')}"
+
+
+def appreciation_message(summary: dict) -> str:
+    user_label = display_name()
+    streak = summary.get("current_streak", 0)
+    total_days = summary.get("total_action_days", 0)
+    if total_days <= 1:
+        return (
+            f"Nice start, {user_label}. You marked today as a healthy step. "
+            "That first step matters."
+        )
+    if streak > 1:
+        return (
+            f"Beautiful consistency, {user_label}. You are on a {streak}-day streak "
+            "of taking small wellness actions."
+        )
+    return (
+        f"Well done, {user_label}. You marked today and kept your wellness habit alive."
+    )
+
+
+def mark_action_done(group: dict) -> None:
+    summary = record_action_completion(
+        int(st.session_state["user_id"]),
+        action_key_for_group(group),
+        group.get("action_title", "Wellness action"),
+    )
+    st.session_state["progress_summary"] = summary
+    st.success(appreciation_message(summary))
+
+
 def display_name() -> str:
-    username = st.session_state.get("username", "")
-    if username:
-        return username
     email = st.session_state.get("user_email", "")
     name = email.split("@", 1)[0].replace(".", " ").replace("_", " ").strip()
     return name.title() if name else "there"
@@ -799,8 +836,15 @@ def render_wellness_questions() -> None:
             "spiritual_boundary": spiritual_boundary,
         }
         try:
-            st.session_state["recommendation"] = fetch_recommendation(answers)
-            st.session_state["wellness_answers"] = answers
+            checkin = record_checkin(int(st.session_state["user_id"]), answers)
+            recommendation_answers = {
+                **answers,
+                "_same_response_days": str(checkin["same_response_days"]),
+            }
+            st.session_state["recommendation"] = fetch_recommendation(
+                recommendation_answers
+            )
+            st.session_state["wellness_answers"] = recommendation_answers
             st.session_state["onboarding_step"] = "home"
             st.rerun()
         except (requests.RequestException, ValueError) as exc:
@@ -861,11 +905,15 @@ def render_article_action_page(article: dict) -> None:
 
     st.subheader("Today's Action")
     st.write(group.get("action_title", "Take one small idea from this article today."))
+    if group.get("activity_minutes"):
+        st.caption(f"Estimated effort today: {group['activity_minutes']} minutes")
     for step in group.get("action_steps", []):
         st.write(f"- {step}")
+    if group.get("progress_note"):
+        st.info(group["progress_note"])
     if st.button("Mark as Done", type="primary"):
         st.session_state["done_articles"].add(article["url"])
-        st.success("Done. Small steps count.")
+        mark_action_done(group)
 
     st.subheader("Insight")
     st.write(
@@ -927,12 +975,23 @@ def render_article_card(article: dict, saved_urls: set[str], key_prefix: str) ->
 def render_recommendation_group(group: dict, saved_urls: set[str]) -> None:
     st.subheader(group.get("title", "Wellness recommendation"))
     st.markdown(f"**{group.get('action_title', 'Suggested action')}**")
+    if group.get("activity_minutes"):
+        st.caption(f"Estimated effort today: {group['activity_minutes']} minutes")
     for step in group.get("action_steps", []):
         st.write(f"- {step}")
+    if group.get("progress_note"):
+        st.info(group["progress_note"])
     st.caption(group.get("reason", "Matched to your preferences and boundaries."))
     if group.get("tags"):
         st.caption("Matched signals: " + ", ".join(group["tags"]))
     st.markdown(f"**Insight:** {group.get('insight', 'Small actions count.')}")
+
+    if st.button(
+        "Mark this action done",
+        key=f"done_{action_key_for_group(group)}",
+        type="primary",
+    ):
+        mark_action_done(group)
 
     articles = group.get("articles", [])
     if articles:
@@ -950,9 +1009,23 @@ def render_today_dashboard() -> None:
     recommendation = st.session_state.get("recommendation", {})
     groups = recommendation.get("groups", [])
     saved_urls = get_saved_article_urls(int(st.session_state["user_id"]))
+    summary = st.session_state.get("progress_summary") or progress_summary(
+        int(st.session_state["user_id"])
+    )
+    st.session_state["progress_summary"] = summary
 
     st.title(f"{greeting()}, {display_name()}")
     st.caption("A gentle daily plan based on your preferences and boundaries.")
+
+    streak_col, total_col = st.columns(2)
+    streak_col.metric("Action streak", f"{summary.get('current_streak', 0)} days")
+    total_col.metric("Healthy action days", summary.get("total_action_days", 0))
+    if summary.get("today_completed"):
+        st.success("Today is marked. Thank you for taking a step toward a healthier lifestyle.")
+    elif summary.get("current_streak", 0) > 0:
+        st.info("Complete one recommended action today to keep your streak going.")
+    else:
+        st.info("Mark one small action done today to begin your Joyverse streak.")
 
     st.subheader("Today's Focus")
     st.write(recommendation.get("today_focus", "Choose one gentle next step"))
@@ -987,18 +1060,18 @@ def render_auth_screen() -> None:
 
     with login_tab:
         with st.form("login_form"):
-            username = st.text_input("Username", key="login_username")
+            email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_password")
             submitted = st.form_submit_button("Login", type="primary")
 
         if submitted:
-            success, message, user = authenticate_user(username, password)
+            success, message, user = authenticate_user(email, password)
             if success and user:
                 st.session_state["authenticated"] = True
                 st.session_state["user_id"] = user["id"]
-                st.session_state["username"] = user["username"]
                 st.session_state["user_email"] = user["email"]
                 st.session_state["user_avatar"] = user["avatar"]
+                st.session_state["progress_summary"] = progress_summary(user["id"])
                 st.success(message)
                 st.rerun()
             else:
@@ -1006,11 +1079,6 @@ def render_auth_screen() -> None:
 
     with register_tab:
         with st.form("register_form"):
-            username = st.text_input(
-                "Username",
-                help="Use 3-24 letters or numbers only. No spaces or special characters.",
-                key="register_username",
-            )
             email = st.text_input("Email", key="register_email")
             password = st.text_input("Password", type="password", key="register_password")
             confirm_password = st.text_input(
@@ -1024,7 +1092,7 @@ def render_auth_screen() -> None:
             if password != confirm_password:
                 st.error("Passwords do not match.")
             else:
-                success, message = register_user(username, email, password)
+                success, message = register_user(email, password)
                 if success:
                     st.success(message)
                 else:
@@ -1098,7 +1166,7 @@ with st.sidebar:
     st.markdown("## Joyverse")
     st.caption("Helping India Smile Everyday")
     st.markdown(
-        f"### {st.session_state['user_avatar']} {st.session_state['username']}"
+        f"### {st.session_state['user_avatar']} {st.session_state['user_email']}"
     )
     st.session_state["active_view"] = st.radio(
         "View",
